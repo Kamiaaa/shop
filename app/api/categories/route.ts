@@ -1,15 +1,31 @@
 // app/api/categories/route.ts
 import { NextResponse } from "next/server";
 import connectMongo from "@/lib/mongoose";
-import Category from "@/models/Category";
+import Category, { ICategory } from "@/models/Category"; // Import ICategory if it exists
 import Product from "@/models/Product";
+import mongoose, { HydratedDocument } from "mongoose";
+
+// Define a proper type for the lean category
+// If ICategory exists in your model, you can use that
+type CategoryDocument = {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  parentCategory?: mongoose.Types.ObjectId | null;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  __v?: number;
+};
 
 export async function GET() {
   try {
     await connectMongo();
 
-    // Get all active categories
-    const categories = await Category.find({ isActive: true }).lean();
+    // Get all active categories with explicit type casting
+    const categories = await Category.find({ isActive: true }).lean() as CategoryDocument[];
 
     // Get categories with product count and first product image
     const categoriesWithDetails = await Promise.all(
@@ -36,9 +52,9 @@ export async function GET() {
           _id: category._id.toString(),
           name: category.name,
           slug: category.slug,
-          description: category.description,
-          image: category.image,
-          displayImage: displayImage,
+          description: category.description || '',
+          image: category.image || '',
+          displayImage: displayImage || '',
           productCount,
         };
       })
