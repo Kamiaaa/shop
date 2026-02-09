@@ -311,7 +311,7 @@ export default function CheckoutSuccessPage() {
                   href="/orders"
                   className="block w-full text-center text-blue-600 py-3 px-4 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors duration-200 font-medium"
                 >
-                  View Order History
+                  View Order History...
                 </Link>
               </div>
               
