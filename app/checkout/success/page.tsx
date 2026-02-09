@@ -1,7 +1,7 @@
 // app/checkout/success/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,25 +32,15 @@ interface Order {
   createdAt: string;
 }
 
-// Prevent static generation since we use useSearchParams()
-export const dynamic = 'force-dynamic';
-
-export default function CheckoutSuccessPage() {
+// Wrap the main content in a Suspense boundary
+function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isClient, setIsClient] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Set isClient to true when component mounts
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isClient) return;
-
     const orderId = searchParams.get('orderId');
     const paymentMethod = searchParams.get('method');
 
@@ -90,7 +80,7 @@ export default function CheckoutSuccessPage() {
     };
 
     fetchOrder();
-  }, [isClient, searchParams, router]);
+  }, [searchParams, router]);
 
   // Format currency function
   const formatCurrency = (amount: number) => {
@@ -100,8 +90,7 @@ export default function CheckoutSuccessPage() {
     }).format(amount);
   };
 
-  // Show loading state during prerendering or initial load
-  if (!isClient || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full text-center">
@@ -109,10 +98,10 @@ export default function CheckoutSuccessPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
           <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            {!isClient ? 'Loading...' : 'Loading Your Order'}
+            Loading Your Order
           </h2>
           <p className="text-gray-500">
-            {!isClient ? 'Please wait...' : 'Please wait while we retrieve your order details...'}
+            Please wait while we retrieve your order details...
           </p>
         </div>
       </div>
@@ -311,7 +300,7 @@ export default function CheckoutSuccessPage() {
                   href="/orders"
                   className="block w-full text-center text-blue-600 py-3 px-4 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors duration-200 font-medium"
                 >
-                  View Order History...
+                  View Order History
                 </Link>
               </div>
               
@@ -330,3 +319,26 @@ export default function CheckoutSuccessPage() {
     </div>
   );
 }
+
+// Main page component with Suspense boundary
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full text-center">
+          <div className="flex justify-center mb-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading...</h2>
+          <p className="text-gray-500">Please wait...</p>
+        </div>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
+  );
+}
+
+// Explicitly disable static generation
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
