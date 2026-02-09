@@ -1,21 +1,19 @@
 // app/api/orders/[id]/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectMongo from '@/lib/mongoose';
 import Order from '@/models/Order';
 
-interface Params {
-  params: {
-    id: string;
-  };
-}
-
-// GET: Fetch single order by ID
-export async function GET(req: Request, { params }: Params) {
+// Option 1: Using the new Next.js 15+ async params
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    // Await the params Promise first
+    const { id } = await params;
+    
     await connectMongo();
-
-    const { id } = params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
@@ -47,11 +45,15 @@ export async function GET(req: Request, { params }: Params) {
 }
 
 // PUT: Update order status
-export async function PUT(req: Request, { params }: Params) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    // Await the params Promise first
+    const { id } = await params;
+    
     await connectMongo();
-
-    const { id } = params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
