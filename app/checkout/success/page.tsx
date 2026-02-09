@@ -32,44 +32,65 @@ interface Order {
   createdAt: string;
 }
 
+// Prevent static generation since we use useSearchParams()
+export const dynamic = 'force-dynamic';
+
 export default function CheckoutSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('orderId');
-  const paymentMethod = searchParams.get('method');
+  const [isClient, setIsClient] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Redirect if no orderId
+  // Set isClient to true when component mounts
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    const orderId = searchParams.get('orderId');
+    const paymentMethod = searchParams.get('method');
+
     if (!orderId) {
       router.push('/cart');
       return;
     }
-  }, [orderId, router]);
 
-  useEffect(() => {
-    if (orderId) {
-      fetch(`/api/orders?orderId=${orderId}`)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Failed to fetch order');
-          }
-          return res.json();
-        })
-        .then((data) => {
-          if (data.order) {
-            setOrder(data.order);
-          } else {
-            throw new Error('Order not found');
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to fetch order:', err);
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [orderId]);
+    const fetchOrder = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/orders?orderId=${orderId}`);
+        
+        if (!res.ok) {
+          throw new Error('Failed to fetch order');
+        }
+        
+        const data = await res.json();
+        
+        if (data.order) {
+          // Add payment method from URL if not in order data
+          const orderWithPaymentMethod = {
+            ...data.order,
+            paymentMethod: paymentMethod || data.order.paymentMethod || 'card'
+          };
+          setOrder(orderWithPaymentMethod);
+        } else {
+          throw new Error('Order not found');
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch order:', err);
+        setError(err.message || 'Failed to load order details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [isClient, searchParams, router]);
 
   // Format currency function
   const formatCurrency = (amount: number) => {
@@ -79,21 +100,26 @@ export default function CheckoutSuccessPage() {
     }).format(amount);
   };
 
-  if (loading) {
+  // Show loading state during prerendering or initial load
+  if (!isClient || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full text-center">
           <div className="flex justify-center mb-6">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading Your Order</h2>
-          <p className="text-gray-500">Please wait while we retrieve your order details...</p>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            {!isClient ? 'Loading...' : 'Loading Your Order'}
+          </h2>
+          <p className="text-gray-500">
+            {!isClient ? 'Please wait...' : 'Please wait while we retrieve your order details...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!order) {
+  if (error || !order) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full text-center">
@@ -102,8 +128,12 @@ export default function CheckoutSuccessPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Order Not Found</h1>
-          <p className="text-gray-600 mb-4">We couldn't find the order you're looking for.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            {error ? 'Error Loading Order' : 'Order Not Found'}
+          </h1>
+          <p className="text-gray-600 mb-4">
+            {error || 'We couldn\'t find the order you\'re looking for.'}
+          </p>
           <p className="text-sm text-gray-500 mb-6">
             This might happen if the page was refreshed or the order ID is invalid.
           </p>
@@ -138,7 +168,7 @@ export default function CheckoutSuccessPage() {
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {paymentMethod === 'cod' ? 'Order Placed Successfully!' : 'Payment Confirmed!'}
+            {order.paymentMethod === 'cod' ? 'Order Placed Successfully!' : 'Payment Confirmed!'}
           </h1>
           <p className="text-gray-600 mb-4">
             Thank you for your order. A confirmation email has been sent to {order.email}
@@ -176,6 +206,7 @@ export default function CheckoutSuccessPage() {
                             alt={item.name}
                             fill
                             className="object-cover"
+                            sizes="64px"
                           />
                         </div>
                       )}
